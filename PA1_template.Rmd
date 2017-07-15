@@ -26,9 +26,12 @@ setwd("/home/fnieto/Documents/R-Programming-Training/datasciencecoursera/Reprodu
 ```
 Load the "activity.csv" file into the activityData R object
 ```{r, echo=TRUE}
-activityData <- read.csv("activity.csv", stringsAsFactors = FALSE, na.strings = "NA")
-activityDf <- tbl_df(activityData)
-str(activityDf)
+activityData <-
+    read.csv("activity.csv",
+    stringsAsFactors = FALSE,
+    na.strings = "NA")
+    activityDf <- tbl_df(activityData)
+    str(activityDf)
 ```
 Notice that the "date" column has chr class, for fix that we should assign the proper class (type of vairable) for "date"
 ```{r, echo=TRUE}
@@ -36,28 +39,126 @@ activityDf <- activityDf %>% mutate(date = as.Date(date))
 str(activityDf)
 ```
 ## What is mean total number of steps taken per day?
-Group by the "date" variable the data frame, ignoring the NA values fro the variable "steps"
+Group by the "date" variable the data frame, ignoring the NA values for the variable "steps"
 ```{r, echo=TRUE}
-byDayActivity <- activityDf %>% filter(!is.na(steps)) %>% group_by(date)
-stepsByDayActivity <- byDayActivity %>% summarize(stpesByDay = sum(steps))
+byDayActivity <-
+    activityDf %>% filter(!is.na(steps)) %>% group_by(date)
+stepsByDayActivity <-
+    byDayActivity %>% summarize(stepsByDay = sum(steps), meanByDay = mean(steps))
 ```
 Make a histogram of the total number of the steps take each day
 ```{r, echo=TRUE}
 attach(stepsByDayActivity)
-histogram(stpesByDay, main="Total Steps per Day", xlab="Total steps", ylab="Day number")
+histogram(stepsByDay,
+          main = "Total Steps per Day",
+          xlab = "Total steps",
+          ylab = "Day number")
 ```
 
 **Mean** and **Median** of the total steps taken per day
 ```{r, echo=TRUE}
-byDayActivity %>% summarize(stepsMean = mean(steps), stepsMedian = median(steps))
+stepsByDayActivity %>% summarize(Mean = mean(stepsByDay), Median = median(stepsByDay))
 ```
 
 ## What is the average daily activity pattern?
+Gruop by "interval"" variable and get the mean of the steps per "internal"
+```{r, echo=TRUE}
+by5MinInterval <-
+    activityDf %>% filter(!is.na(steps)) %>% group_by(interval) %>% summarize(avgSteps = mean(steps))
+by5MinInterval
+```
+Time series plot Average Dailt Activity Pattern
+```{r, echo=TRUE}
+attach(by5MinInterval)
+xyplot(
+    avgSteps ~ interval,
+    main = "Average Daily Activity",
+    xlab = "5 Min Interval",
+    ylab = "Avg Steps",
+    grid = TRUE,
+    type = "l"
+    )
+```
 
-
+Maximum number of the steps 5 minute interval 
+```{r, echo=TRUE}
+topInterval <-
+    as.character(by5MinInterval %>% arrange(desc(avgSteps)) %>% filter(row_number() == 1) %>% select(interval))
+```
+Maximum number of the steps 5 minute interval is: `r topInterval` => (topInterval)
 
 ## Imputing missing values
+```{r, echo=TRUE}
+countNas <-
+    as.character(activityDf %>% filter(is.na(steps)) %>% summarize(n()))
+```
+The total number of missing values are: `r countNas` => (countNas)
 
+Calculate the mean of the steps
+```{r, echo=TRUE}
+meanStepsByDay <-
+    activityDf %>% summarize(meanByDay = mean(steps, na.rm = TRUE))
+```
 
+Subset the original data frame with the observations with missing values for steps variable
+```{r, echo=TRUE}
+byDayNas <-
+    activityDf %>% filter(is.na(steps)) %>% group_by(date) %>% mutate(steps = (as.numeric(meanStepsByDay)))
+```
+
+New data set with missing values filled in mergin the byDayActivity and byDayNas data frames
+```{r, echo=TRUE}
+byDayActivities <-
+    rbind(byDayActivity, byDayNas)
+dimOriginal <- dim(activityDf)
+dimMergeDf <- dim(byDayActivities)
+```
+The dimension of the original data frame is: **`r dimOriginal`** and for the merge data frame is: **`r dimMergeDf`**
+
+Calculate the total number of steps per day
+```{r, echo=TRUE}
+stepsByDayActivities <-
+    byDayActivities %>% summarize(stepsByDay = sum(steps), meanByDay = mean(steps))
+```
+Make a histogram of the total number of the steps take each day
+```{r, echo=TRUE}
+attach(stepsByDayActivities)
+histogram(stepsByDay,
+          main = "Total Steps per Day",
+          xlab = "Total steps",
+          ylab = "Day number")
+```
+
+**Mean** and **Median** of the total steps taken per day
+```{r, echo=TRUE}
+stepsByDayActivities %>% summarize(Mean = mean(stepsByDay), Median = median(stepsByDay))
+```
+Because the number of the observations were increased when added the missing values the total of the steps increased but the mean and median decreased.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Create a new factor variable indicating whether a given date is "weekday" or "weekend"
+```{r, echo=TRUE}
+byDayActivities <-
+    byDayActivities %>% mutate(weekday = format(date, "%a")) %>%
+    mutate(dayType = ifelse((weekday == "Sat" |
+    weekday == "Sun"), "weekend", "weekday"))
+```
+Gruop by "interval"" variable and get the mean of the steps per "internal"
+```{r, echo=TRUE}
+by5MinInterval <-
+    byDayActivities %>% group_by(dayType, interval) %>% summarize(avgSteps = mean(steps))
+by5MinInterval
+```
+Time series plot Average Daily Activity Pattern
+```{r, echo=TRUE}
+attach(by5MinInterval)
+xyplot(
+    avgSteps ~ interval|dayType,
+    main = "Average Daily Activity",
+    xlab = "5 Min Interval",
+    ylab = "Avg number of Steps",
+    grid = TRUE,
+    type = "l"
+    )
+```
